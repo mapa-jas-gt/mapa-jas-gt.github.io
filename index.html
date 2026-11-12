@@ -27,9 +27,9 @@ h1 span{color:var(--brand)}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--muted)}
 .kpi b{display:block;font-size:20px;color:var(--ink);font-weight:650}
 main{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px;padding:12px 24px 28px;max-width:1280px;margin:0 auto}
-@media (max-width:960px){main{grid-template-columns:1fr;padding:12px 14px 24px}header{padding:16px 14px 4px}}
+@media (max-width:960px){input,select{font-size:16px!important}.tools input,.tools select{padding:10px 12px}.tw{max-height:440px}main{grid-template-columns:1fr;padding:12px 14px 24px}header{padding:16px 14px 4px}}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
-#mapwrap{position:relative;overflow:hidden;background:var(--sea);border-radius:14px;touch-action:none}
+#mapwrap{position:relative;overflow:hidden;background:var(--sea);border-radius:14px;touch-action:auto}
 #map{display:block;width:100%;height:auto;cursor:grab;user-select:none}
 #map.drag{cursor:grabbing}
 .zoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
@@ -37,9 +37,14 @@ main{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px;
 .zoom button:hover{border-color:var(--brand)}
 #tip{position:absolute;pointer-events:none;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:none;max-width:230px;z-index:3}
 #tip b{font-size:13px}
+#chip{display:none;position:absolute;left:10px;top:10px;max-width:calc(100% - 70px);background:var(--panel);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:7px 10px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:2}
 .note{position:absolute;left:10px;bottom:8px;font-size:11px;color:var(--muted);background:color-mix(in srgb,var(--panel) 85%,transparent);padding:3px 8px;border-radius:6px;max-width:75%}
 .side{display:flex;flex-direction:column;gap:12px;min-width:0}
 .sec{padding:14px 16px}
+.collapsible h2{cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.collapsible h2::after{content:"\25BE";font-size:14px}
+.collapsible.collapsed h2::after{content:"\25B8"}
+.collapsible.collapsed>*:not(h2){display:none}
 .sec h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
 .ax{display:flex;align-items:flex-start;gap:9px;padding:6px 0;font-size:13.5px;cursor:pointer}
 .ax input{margin-top:3px;accent-color:var(--brand)}
@@ -98,12 +103,13 @@ footer{max-width:1280px;margin:0 auto;padding:0 24px 28px;color:var(--muted);fon
       <svg id="map" role="img" aria-label="Mapa do território Interior JAS GT"></svg>
       <div class="zoom"><button id="zin" aria-label="Aproximar">+</button><button id="zout" aria-label="Afastar">−</button><button id="zreset" aria-label="Recentralizar" style="font-size:13px">⟲</button></div>
       <div id="tip"></div>
+      <div id="chip"></div>
       <div class="note">Linhas = ligação ilustrativa entre cidades, não o traçado real das rodovias.</div>
     </div>
   </section>
 
   <section class="side">
-    <div class="card sec">
+    <div class="card sec collapsible">
       <h2>Faixa de cobertura ao longo dos eixos</h2>
       <div style="display:flex;align-items:center;gap:12px">
         <input type="range" id="rad" min="50" max="150" step="10" style="flex:1;accent-color:var(--brand)" aria-label="Raio em km">
@@ -116,7 +122,7 @@ footer{max-width:1280px;margin:0 auto;padding:0 24px 28px;color:var(--muted);fon
       </div>
     </div>
 
-    <div class="card sec">
+    <div class="card sec collapsible">
       <h2>Eixos</h2>
       <div id="axes"></div>
       <div class="row">
@@ -139,7 +145,7 @@ footer{max-width:1280px;margin:0 auto;padding:0 24px 28px;color:var(--muted);fon
         <button class="btn" id="copy">Copiar CSV</button>
       </div>
       <div class="tw"><table><thead><tr>
-        <th data-k="nome">Município ▾</th><th data-k="uf">UF</th><th data-k="polo">Eixo mais próximo</th><th data-k="km">Km</th><th data-k="eixos">Eixo</th>
+        <th data-k="nome">Município ▾</th><th data-k="uf">UF</th><th data-k="polo">Eixo</th><th data-k="km">Km</th>
       </tr></thead><tbody id="tb"></tbody></table></div>
     </div>
   </section>
@@ -186,7 +192,8 @@ function kpis(){
 function draw(){
   svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   svg.innerHTML='';
-  const k=vb.w/D.W, s=Math.pow(k,.7), f=Math.pow(k,.8);
+  const k=vb.w/D.W, cw=svg.clientWidth||622, s=(vb.w/cw)/1.31*(cw<500?1.12:1), f=s;
+  svg.style.touchAction=(vb.w<D.W*0.95)?'none':'auto';
   const cs=getComputedStyle(document.documentElement), css=n=>cs.getPropertyValue(n);
   const gS=el('g',{},svg), gR=el('g',{},svg), gD=el('g',{},svg), gL=el('g',{},svg), gC=el('g',{},svg), gT=el('g',{},svg);
   D.estados.forEach(e=>el('path',{d:e.d,fill:e.uf==='SP'?css('--land-sp'):css('--land'),stroke:css('--land-stroke'),'stroke-width':1.2*s,'stroke-linejoin':'round'},gS));
@@ -248,7 +255,7 @@ function tip(m,ev){
 
 /* pan / zoom */
 let drag=null,moved=false;
-svg.addEventListener('pointerdown',ev=>{drag={x:ev.clientX,y:ev.clientY,vx:vb.x,vy:vb.y};moved=false;});
+svg.addEventListener('pointerdown',ev=>{if(ev.pointerType==='touch'&&vb.w>=D.W*0.95)return;drag={x:ev.clientX,y:ev.clientY,vx:vb.x,vy:vb.y};moved=false;});
 window.addEventListener('pointermove',ev=>{
   if(!drag)return;const r=svg.getBoundingClientRect(),dx=ev.clientX-drag.x,dy=ev.clientY-drag.y;
   if(Math.abs(dx)+Math.abs(dy)>4){moved=true;svg.classList.add('drag');}
@@ -276,6 +283,8 @@ function select(m,pan){
     <div style="margin:6px 0">${h}</div>${ex?'<div style="margin:6px 0">'+ex+(m.st?'<span class="tag">'+m.st+'</span>':'')+'</div>':''}
     <div style="margin-top:8px;color:var(--muted);font-size:12.5px">IBGE ${m.i} · DDD ${m.d} · ${m.la.toFixed(4)}, ${m.lo.toFixed(4)}</div>`;
   document.querySelectorAll('#tb tr').forEach(tr=>tr.classList.toggle('on',tr.dataset.k===m.i));
+  const [vk,vt]=verdict(m), ch=$('chip'), cc=vk==='yes'?'#1f7a4d':'#c0392b';
+  ch.style.display='block'; ch.style.borderColor=cc; ch.innerHTML=`<b>${m.n} · ${m.u}</b><br><span style="color:${cc};font-weight:700">${vk==='yes'?'✔':'✖'} ${vt}</span>`;
 }
 
 /* ---------- tabela ---------- */
@@ -286,8 +295,7 @@ function renderTable(){
     .filter(r=>(!q||r.m.n.toLowerCase().includes(q))&&(fh===''||r.m.ds[+fh]<=R));
   const g=r=>sortK==='nome'?r.m.n:sortK==='uf'?r.m.u:sortK==='polo'?D.polos[r.b].nome:sortK==='eixos'?(r.m.ax[0]||'Z'):r.d;
   rows.sort((a,b)=>(g(a)>g(b)?1:g(a)<g(b)?-1:a.m.n.localeCompare(b.m.n))*sortDir);
-  $('tb').innerHTML=rows.map(({m,b,d})=>`<tr data-k="${m.i}" class="${sel===m?'on':''}"><td>${m.n}${isSug(m)?' <span class="sug" title="sugerido, validar">*</span>':''}</td><td>${m.u}</td><td>${D.polos[b].nome}</td><td>${d.toFixed(0)}</td>
-    <td><span class="dots">${m.ax.map(e=>`<i style="background:${COR[e]}"></i>`).join('')||'–'}</span></td></tr>`).join('');
+  $('tb').innerHTML=rows.map(({m,b,d})=>`<tr data-k="${m.i}" class="${sel===m?'on':''}"><td>${m.n}${isSug(m)?' <span class="sug" title="sugerido, validar">*</span>':''}</td><td>${m.u}</td><td>Eixo ${D.polos[b].id}</td><td>${d.toFixed(0)}</td></tr>`).join('');
   document.querySelectorAll('#tb tr').forEach((tr,i)=>tr.onclick=()=>select(rows[i].m,true));
 }
 $('q').oninput=renderTable;$('fst').onchange=renderTable;
@@ -335,6 +343,12 @@ $('lead').addEventListener('input',checkLead);
 function refresh(){kpis();draw();renderTable();if($('lead').value)checkLead();}
 svg.setAttribute('viewBox',`0 0 ${D.W} ${D.H}`);
 refresh();
+
+window.addEventListener('resize',()=>draw());
+document.querySelectorAll('.collapsible').forEach(c=>{
+  if(window.innerWidth<960)c.classList.add('collapsed');
+  c.querySelector('h2').addEventListener('click',()=>c.classList.toggle('collapsed'));
+});
 </script>
 </body>
 </html>
